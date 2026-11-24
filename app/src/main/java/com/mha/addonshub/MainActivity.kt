@@ -1,17 +1,17 @@
 package com.mha.addonshub
 
-import android.app.DownloadManager
-import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.os.Environment
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -19,34 +19,63 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import org.json.JSONArray
-import java.net.HttpURLConnection
-import java.net.URL
+import androidx.compose.ui.platform.LocalContext
 
-private const val CATALOG_URL = "https://raw.githubusercontent.com/mukadamayyan04-afk/Minecraft-Addons-hub/main/catalog/addons.json"
+private val Ink = Color(0xFF09131A)
+private val Panel = Color(0xFF14232C)
+private val Mint = Color(0xFF61E6B0)
+private val Muted = Color(0xFF9DB2BC)
 
-data class Addon(
-    val id: String,
-    val name: String,
-    val description: String,
-    val category: String,
-    val version: String,
-    val sizeBytes: Long,
-    val fileUrl: String,
-    val sha256: String,
-    val minBedrock: String
+data class AddonInfo(val name: String, val category: String, val description: String, val tag: String = "In curation")
+
+private val plannedAddons = listOf(
+    AddonInfo("Modern Furniture World", "Build & Decor", "Modern homes, furniture concepts and stylish interiors."),
+    AddonInfo("Ultimate Pets & Animals", "Pets & Nature", "A peaceful collection focused on friendly animals and pets."),
+    AddonInfo("Vehicles & Transport", "Vehicles", "Explore creative transport and vehicle builds."),
+    AddonInfo("Realistic Nature", "Nature", "Richer plants, trees and natural scenery."),
+    AddonInfo("Fantasy Structures", "Building", "Fantasy castles, towers and decorative structures."),
+    AddonInfo("Advanced Farming", "Farming", "More crops, farm decorations and peaceful farming ideas."),
+    AddonInfo("Ocean Discovery", "Ocean", "Discover underwater scenery and marine life."),
+    AddonInfo("Sky Islands", "Exploration", "Floating islands, scenic routes and sky builds."),
+    AddonInfo("Seasons & Weather", "Environment", "Seasonal atmosphere and changing environmental visuals."),
+    AddonInfo("HD Ocean Textures", "Textures", "A visual refresh for water and ocean environments."),
+    AddonInfo("Realistic Sky Pack", "Textures", "Atmospheric sky and cloud visuals."),
+    AddonInfo("HD Lighting & Interiors", "Textures", "Cozy lighting and interior-focused visual details."),
+    AddonInfo("Adventure Explorer Pack", "Adventure", "Peaceful exploration, puzzles and collectible discoveries."),
+    AddonInfo("Solo Leveling – Hunter World", "Fan-made world", "Original fan-made, peaceful exploration and story-inspired world. Not official franchise content."),
+    AddonInfo("Naruto – Shinobi World", "Fan-made world", "Original fan-made, peaceful exploration and story-inspired world. Not official franchise content.")
 )
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent { AddonsHubApp() }
+        handleImportIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleImportIntent(intent)
+    }
+
+    private fun handleImportIntent(intent: Intent?) {
+        val raw = intent?.getStringExtra("import_uri") ?: return
+        val mime = intent.getStringExtra("import_mime") ?: "application/octet-stream"
+        val view = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(Uri.parse(raw), mime)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        try {
+            startActivity(view)
+        } catch (_: Exception) {
+            Toast.makeText(this, "Minecraft ya compatible importer install nahi mila. File Downloads mein available hai.", Toast.LENGTH_LONG).show()
+        }
+        intent.removeExtra("import_uri")
     }
 }
 
@@ -54,190 +83,187 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun AddonsHubApp() {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var addons by remember { mutableStateOf<List<Addon>>(emptyList()) }
-    var selected by remember { mutableStateOf("Home") }
-    var query by remember { mutableStateOf("") }
-    var status by remember { mutableStateOf("Connect to load the latest catalog.") }
-    var loading by remember { mutableStateOf(false) }
-    var selectedAddon by remember { mutableStateOf<Addon?>(null) }
+    var tab by remember { mutableStateOf("Home") }
+    var search by remember { mutableStateOf("") }
+    var selected by remember { mutableStateOf<AddonInfo?>(null) }
+    val filtered = plannedAddons.filter { it.name.contains(search, true) || it.category.contains(search, true) }
 
-    fun refreshCatalog() {
-        scope.launch {
-            loading = true
-            status = "Loading catalog…"
-            try {
-                val result = withContext(Dispatchers.IO) { loadCatalog() }
-                addons = result
-                status = if (result.isEmpty()) "Catalog is online but has no verified add-ons yet." else "${result.size} add-ons loaded."
-            } catch (e: Exception) {
-                status = "Catalog unavailable. Check your internet and try again."
-            } finally { loading = false }
-        }
-    }
-
-    LaunchedEffect(Unit) { refreshCatalog() }
-
-    MaterialTheme(colorScheme = darkColorScheme(
-        primary = androidx.compose.ui.graphics.Color(0xFF63D6A5),
-        secondary = androidx.compose.ui.graphics.Color(0xFF8AB4F8),
-        background = androidx.compose.ui.graphics.Color(0xFF0B1014),
-        surface = androidx.compose.ui.graphics.Color(0xFF151D23)
-    )) {
+    MaterialTheme(
+        colorScheme = darkColorScheme(
+            primary = Mint, secondary = Color(0xFF91B7FF),
+            background = Ink, surface = Panel, onBackground = Color.White,
+            onSurface = Color.White
+        )
+    ) {
         Scaffold(
+            containerColor = Ink,
             topBar = {
                 TopAppBar(
-                    title = { Column {
-                        Text("MINECRAFT ADDONS HUB", fontWeight = FontWeight.Bold)
-                        Text("Bedrock Edition • Community catalog", style = MaterialTheme.typography.labelSmall)
-                    } },
-                    actions = {
-                        IconButton(onClick = { refreshCatalog() }, enabled = !loading) {
-                            Icon(Icons.Default.Refresh, contentDescription = "Refresh catalog")
+                    title = {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Box(Modifier.size(38.dp).background(Brush.linearGradient(listOf(Mint, Color(0xFF279D9C))), RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
+                                Icon(Icons.Default.Extension, null, tint = Ink, modifier = Modifier.size(23.dp))
+                            }
+                            Column {
+                                Text("ADDONS HUB", fontWeight = FontWeight.Black, style = MaterialTheme.typography.titleMedium)
+                                Text("MINECRAFT BEDROCK", color = Muted, style = MaterialTheme.typography.labelSmall)
+                            }
                         }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Ink)
                 )
             },
             bottomBar = {
-                NavigationBar {
-                    listOf("Home", "Explore", "Downloads", "Updates", "Settings").forEach { item ->
-                        val icon = when(item) {
+                NavigationBar(containerColor = Color(0xFF101D25), contentColor = Mint) {
+                    listOf("Home", "Explore", "Downloads", "Settings").forEach { item ->
+                        val icon = when (item) {
                             "Home" -> Icons.Default.Home
                             "Explore" -> Icons.Default.Explore
                             "Downloads" -> Icons.Default.Download
-                            "Updates" -> Icons.Default.Update
                             else -> Icons.Default.Settings
                         }
                         NavigationBarItem(
-                            selected = selected == item,
-                            onClick = { selected = item },
+                            selected = tab == item, onClick = { tab = item },
                             icon = { Icon(icon, contentDescription = item) },
-                            label = { Text(item) }
+                            label = { Text(item) },
+                            colors = NavigationBarItemDefaults.colors(selectedIconColor = Mint, selectedTextColor = Mint, indicatorColor = Mint.copy(alpha = .12f))
                         )
                     }
                 }
-            },
-            containerColor = MaterialTheme.colorScheme.background
+            }
         ) { padding ->
-            Column(Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
-                if (selected == "Home" || selected == "Explore") {
-                    Card(shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                        Column(Modifier.padding(18.dp)) {
-                            Text(if (selected == "Home") "Discover your next world" else "Explore add-ons", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                            Spacer(Modifier.height(6.dp))
-                            Text("Find community add-ons and download compatible packs for Minecraft Bedrock.")
-                            Spacer(Modifier.height(12.dp))
-                            OutlinedTextField(
-                                value = query, onValueChange = { query = it },
-                                modifier = Modifier.fillMaxWidth(),
-                                placeholder = { Text("Search add-ons") },
-                                leadingIcon = { Icon(Icons.Default.Search, null) },
-                                singleLine = true
-                            )
-                        }
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(status, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
-                        if (loading) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    val visible = addons.filter { it.name.contains(query, true) || it.category.contains(query, true) }
-                    LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        items(visible) { addon ->
-                            Card(
-                                modifier = Modifier.fillMaxWidth().clickable { selectedAddon = addon },
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                            ) {
-                                Column(Modifier.padding(16.dp)) {
-                                    Text(addon.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                    Text(addon.category + " • " + addon.version, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
-                                    Spacer(Modifier.height(6.dp))
-                                    Text(addon.description, maxLines = 3, style = MaterialTheme.typography.bodyMedium)
+            when (tab) {
+                "Home", "Explore" -> LazyColumn(
+                    modifier = Modifier.fillMaxSize().padding(padding),
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    item {
+                        Card(
+                            shape = RoundedCornerShape(26.dp),
+                            colors = CardDefaults.cardColors(containerColor = Panel),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Box(Modifier.background(Brush.linearGradient(listOf(Color(0xFF173B3A), Color(0xFF172633), Panel))).padding(20.dp)) {
+                                Column {
+                                    Surface(color = Mint.copy(alpha = .14f), shape = CircleShape) {
+                                        Text("  BEDROCK ADD-ONS  ", color = Mint, modifier = Modifier.padding(vertical = 6.dp), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                                    }
+                                    Spacer(Modifier.height(14.dp))
+                                    Text(if (tab == "Home") "Build a world\nthat feels yours." else "Explore add-ons", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold, color = Color.White)
                                     Spacer(Modifier.height(8.dp))
-                                    Text("Bedrock " + addon.minBedrock + " • " + formatSize(addon.sizeBytes), style = MaterialTheme.typography.labelSmall)
-                                    TextButton(onClick = { downloadAndImport(context, addon) }) {
-                                        Icon(Icons.Default.Download, null)
+                                    Text("Discover new builds, nature, pets and peaceful adventures.", color = Muted)
+                                    Spacer(Modifier.height(16.dp))
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.Verified, tint = Mint, contentDescription = null, modifier = Modifier.size(18.dp))
                                         Spacer(Modifier.width(6.dp))
-                                        Text("Download")
+                                        Text("Free • No ads • No subscriptions", color = Mint, style = MaterialTheme.typography.labelMedium)
                                     }
                                 }
                             }
                         }
                     }
-                } else {
-                    val message = when(selected) {
-                        "Downloads" -> "Downloads started by this app are managed by Android Download Manager. Open a completed .mcpack or .mcaddon file and choose Minecraft."
-                        "Updates" -> "Catalog updates arrive from the online repository. App code updates require a new APK installation."
-                        else -> "Free • No ads • No subscriptions\n\nCatalog source: GitHub\nOnly install add-ons from sources you trust."
+                    item {
+                        OutlinedTextField(
+                            value = search, onValueChange = { search = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = { Text("Search 15 add-ons…") },
+                            leadingIcon = { Icon(Icons.Default.Search, null) },
+                            singleLine = true, shape = RoundedCornerShape(16.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Mint, unfocusedBorderColor = Color(0xFF344750),
+                                focusedContainerColor = Panel, unfocusedContainerColor = Panel
+                            )
+                        )
                     }
-                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                        Column(Modifier.padding(18.dp)) {
-                            Text(selected, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                            Spacer(Modifier.height(8.dp))
-                            Text(message)
-                            if (selected == "Settings") {
-                                Spacer(Modifier.height(12.dp))
-                                Text("Catalog refresh is available from the refresh icon in the top bar.")
+                    item {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("FEATURED COLLECTION", color = Muted, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.weight(1f))
+                            Text("\${filtered.size} items", color = Mint, style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                    items(filtered) { addon ->
+                        Card(
+                            modifier = Modifier.fillMaxWidth().clickable { selected = addon },
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(containerColor = Panel)
+                        ) {
+                            Row(Modifier.padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Box(Modifier.size(54.dp).background(Color(0xFF203A40), RoundedCornerShape(16.dp)), contentAlignment = Alignment.Center) {
+                                    Icon(categoryIcon(addon.category), null, tint = Mint, modifier = Modifier.size(28.dp))
+                                }
+                                Spacer(Modifier.width(13.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text(addon.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(addon.category, color = Muted, style = MaterialTheme.typography.labelSmall)
+                                    Spacer(Modifier.height(7.dp))
+                                    Text(addon.tag, color = Color(0xFFFFD18A), style = MaterialTheme.typography.labelSmall)
+                                }
+                                Icon(Icons.Default.ChevronRight, null, tint = Muted)
                             }
+                        }
+                    }
+                    item {
+                        Text("Packages will appear as downloadable only after the real file, SHA-256 and Bedrock compatibility are verified.", color = Muted, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                "Downloads" -> Column(Modifier.fillMaxSize().padding(padding).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Downloads", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                    Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp)) {
+                        Column(Modifier.padding(18.dp)) {
+                            Icon(Icons.Default.CloudDownload, tint = Mint, modifier = Modifier.size(34.dp), contentDescription = null)
+                            Spacer(Modifier.height(10.dp))
+                            Text("Your downloads will show here", fontWeight = FontWeight.Bold)
+                            Text("Verified package downloads will appear here when published.", color = Muted, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                    Text("Import will use Android's supported open-file permission flow. The app will not access Minecraft's private folders.", color = Muted)
+                }
+                else -> Column(Modifier.fillMaxSize().padding(padding).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Settings", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                    Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp)) {
+                        Column(Modifier.padding(18.dp)) {
+                            Text("Minecraft Addons Hub", fontWeight = FontWeight.Bold)
+                            Text("Version 1.1 • Free • Ad-free", color = Muted)
+                            HorizontalDivider(Modifier.padding(vertical = 12.dp), color = Color(0xFF344750))
+                            Text("Import permission", fontWeight = FontWeight.SemiBold)
+                            Text("Android will ask which app can open the add-on. Choose Minecraft. No access to Minecraft's private folders is needed.", color = Muted, style = MaterialTheme.typography.bodySmall)
+                            HorizontalDivider(Modifier.padding(vertical = 12.dp), color = Color(0xFF344750))
+                            Text("Wi-Fi preference", fontWeight = FontWeight.SemiBold)
+                            Text("Downloads will be Wi-Fi-only by default when verified packages are enabled.", color = Muted, style = MaterialTheme.typography.bodySmall)
                         }
                     }
                 }
             }
         }
-    }
-
-    selectedAddon?.let { addon ->
-        AlertDialog(
-            onDismissRequest = { selectedAddon = null },
-            title = { Text(addon.name) },
-            text = { Text("${addon.description}\n\nPackage size: ${formatSize(addon.sizeBytes)}\nBedrock: ${addon.minBedrock}\nVersion: ${addon.version}") },
-            confirmButton = {
-                TextButton(onClick = { downloadAndImport(context, addon); selectedAddon = null }) { Text("Download") }
-            },
-            dismissButton = { TextButton(onClick = { selectedAddon = null }) { Text("Close") } }
-        )
-    }
-}
-
-private fun loadCatalog(): List<Addon> {
-    val connection = URL(CATALOG_URL).openConnection() as HttpURLConnection
-    connection.connectTimeout = 12000
-    connection.readTimeout = 12000
-    connection.requestMethod = "GET"
-    try {
-        if (connection.responseCode !in 200..299) error("HTTP ${connection.responseCode}")
-        val root = JSONArray(connection.inputStream.bufferedReader().use { it.readText() })
-        return buildList {
-            for (i in 0 until root.length()) {
-                val item = root.getJSONObject(i)
-                val url = item.optString("fileUrl")
-                val hash = item.optString("sha256")
-                if (url.startsWith("https://") && hash.matches(Regex("[a-fA-F0-9]{64}"))) {
-                    add(Addon(
-                        item.getString("id"), item.getString("name"), item.optString("description"),
-                        item.optString("category", "Community"), item.optString("version", "1.0"),
-                        item.optLong("sizeBytes"), url, hash, item.optString("minBedrock", "unknown")
-                    ))
-                }
-            }
+        selected?.let { addon ->
+            AlertDialog(
+                onDismissRequest = { selected = null },
+                containerColor = Panel,
+                title = { Text(addon.name, fontWeight = FontWeight.Bold) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(addon.description)
+                        Text("Category: \${addon.category}", color = Muted)
+                        Text("Download is not enabled yet: the package file has not passed source, checksum and Bedrock-version checks.", color = Color(0xFFFFD18A), style = MaterialTheme.typography.bodySmall)
+                    }
+                },
+                confirmButton = { TextButton(onClick = { selected = null }) { Text("Got it", color = Mint) } },
+                dismissButton = { TextButton(onClick = { selected = null }) { Text("Close") } }
+            )
         }
-    } finally { connection.disconnect() }
+    }
 }
 
-private fun downloadAndImport(context: Context, addon: Addon) {
-    val request = DownloadManager.Request(Uri.parse(addon.fileUrl))
-        .setTitle(addon.name)
-        .setDescription("Downloading add-on package")
-        .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-        .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "MinecraftAddons/${addon.id}.mcaddon")
-        .setMimeType("application/octet-stream")
-        .setAllowedOverMetered(false)
-        .setAllowedOverRoaming(false)
-    val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-    manager.enqueue(request)
+private fun categoryIcon(category: String) = when {
+    category.contains("Pet") || category.contains("Nature") -> Icons.Default.Pets
+    category.contains("Build") || category.contains("Building") -> Icons.Default.Home
+    category.contains("Vehicle") -> Icons.Default.DirectionsCar
+    category.contains("Ocean") -> Icons.Default.Waves
+    category.contains("Farm") -> Icons.Default.Eco
+    category.contains("Texture") -> Icons.Default.Palette
+    category.contains("Adventure") || category.contains("Exploration") -> Icons.Default.Explore
+    else -> Icons.Default.AutoAwesome
 }
-
-private fun formatSize(bytes: Long): String =
-    if (bytes <= 0) "Size not supplied" else String.format("%.1f MB", bytes / 1048576.0)
