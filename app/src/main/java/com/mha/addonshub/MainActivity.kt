@@ -30,7 +30,7 @@ private val Panel = Color(0xFF14232C)
 private val Mint = Color(0xFF61E6B0)
 private val Muted = Color(0xFF9DB2BC)
 
-data class AddonInfo(val name: String, val category: String, val description: String, val tag: String = "In curation")
+data class AddonInfo(val name: String, val category: String, val description: String, val tag: String = "In curation", val fileUrl: String = "", val sha256: String = "", val fileName: String = "")
 
 private val plannedAddons = listOf(
     AddonInfo("Modern Furniture World", "Build & Decor", "Modern homes, furniture concepts and stylish interiors."),
@@ -53,6 +53,7 @@ private val plannedAddons = listOf(
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (android.os.Build.VERSION.SDK_INT >= 33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 410)
         setContent { AddonsHubApp() }
         handleImportIntent(intent)
     }
@@ -86,7 +87,16 @@ private fun AddonsHubApp() {
     var tab by remember { mutableStateOf("Home") }
     var search by remember { mutableStateOf("") }
     var selected by remember { mutableStateOf<AddonInfo?>(null) }
-    val filtered = plannedAddons.filter { it.name.contains(search, true) || it.category.contains(search, true) }
+    var remoteAddons by remember { mutableStateOf<List<AddonInfo>>(emptyList()) }
+    var catalogStatus by remember { mutableStateOf("Checking verified add-ons…") }
+    LaunchedEffect(Unit) {
+        try {
+            remoteAddons = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { fetchRemoteAddons() }
+            catalogStatus = if (remoteAddons.isEmpty()) "No verified downloadable packages published yet." else "${remoteAddons.size} verified packages available."
+        } catch (_: Exception) { catalogStatus = "Catalog unavailable. Check your internet connection." }
+    }
+    val allAddons = remoteAddons + plannedAddons
+    val filtered = allAddons.filter { it.name.contains(search, true) || it.category.contains(search, true) }
 
     MaterialTheme(
         colorScheme = darkColorScheme(
@@ -199,15 +209,17 @@ private fun AddonsHubApp() {
                                     Spacer(Modifier.height(4.dp))
                                     Text(addon.category, color = Muted, style = MaterialTheme.typography.labelSmall)
                                     Spacer(Modifier.height(7.dp))
-                                    Text(addon.tag, color = Color(0xFFFFD18A), style = MaterialTheme.typography.labelSmall)
+                                    Text(if (addon.fileUrl.isNotBlank()) "Verified • Ready to download" else addon.tag, color = if (addon.fileUrl.isNotBlank()) Mint else Color(0xFFFFD18A), style = MaterialTheme.typography.labelSmall)
                                 }
-                                Icon(Icons.Default.ChevronRight, null, tint = Muted)
+                                if (addon.fileUrl.isNotBlank()) {
+                                    IconButton(onClick = { startAddonDownload(context, addon) }) { Icon(Icons.Default.Download, "Download", tint = Mint) }
+                                } else {
+                                    Icon(Icons.Default.ChevronRight, null, tint = Muted)
+                                }
                             }
                         }
                     }
-                    item {
-                        Text("Packages will appear as downloadable only after the real file, SHA-256 and Bedrock compatibility are verified.", color = Muted, style = MaterialTheme.typography.bodySmall)
-                    }
+                    item { Text(catalogStatus + " Planned ideas are shown separately and cannot be downloaded yet.", color = Muted, style = MaterialTheme.typography.bodySmall) }
                 }
                 "Downloads" -> Column(Modifier.fillMaxSize().padding(padding).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("Downloads", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
@@ -247,10 +259,10 @@ private fun AddonsHubApp() {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(addon.description)
                         Text("Category: " + addon.category, color = Muted)
-                        Text("Download is not enabled yet: the package file has not passed source, checksum and Bedrock-version checks.", color = Color(0xFFFFD18A), style = MaterialTheme.typography.bodySmall)
+                        Text(if (addon.fileUrl.isNotBlank()) "Package source and SHA-256 are listed in the verified catalog." else "Download is not enabled yet: the real package file, checksum and Bedrock compatibility are not verified.", color = if (addon.fileUrl.isNotBlank()) Mint else Color(0xFFFFD18A), style = MaterialTheme.typography.bodySmall)
                     }
                 },
-                confirmButton = { TextButton(onClick = { selected = null }) { Text("Got it", color = Mint) } },
+                confirmButton = { if (addon.fileUrl.isNotBlank()) TextButton(onClick = { startAddonDownload(context, addon); selected = null }) { Text("Download", color = Mint) } else TextButton(onClick = { selected = null }) { Text("Got it", color = Mint) } },
                 dismissButton = { TextButton(onClick = { selected = null }) { Text("Close") } }
             )
         }
@@ -266,4 +278,48 @@ private fun categoryIcon(category: String) = when {
     category.contains("Texture") -> Icons.Default.Palette
     category.contains("Adventure") || category.contains("Exploration") -> Icons.Default.Explore
     else -> Icons.Default.AutoAwesome
+}
+
+
+private fun fetchRemoteAddons(): List<AddonInfo> {
+    val url = java.net.URL("https://raw.githubusercontent.com/mukadamayyan04-afk/Minecraft-Addons-hub/main/catalog/addons.json")
+    val connection = url.openConnection() as java.net.HttpURLConnection
+    connection.connectTimeout = 12000
+    connection.readTimeout = 12000
+    try {
+        if (connection.responseCode !in 200..299) error("Catalog HTTP error")
+        val json = org.json.JSONArray(connection.inputStream.bufferedReader().use { it.readText() })
+        return buildList {
+            for (i in 0 until json.length()) {
+                val item = json.getJSONObject(i)
+                val fileUrl = item.optString("fileUrl")
+                val sha = item.optString("sha256")
+                val fileName = item.optString("fileName", "addon.mcaddon")
+                if (fileUrl.startsWith("https://") && sha.matches(Regex("[a-fA-F0-9]{64}")) &&
+                    (fileName.endsWith(".mcaddon", true) || fileName.endsWith(".mcpack", true))) {
+                    add(AddonInfo(item.optString("name", "Community Add-on"), item.optString("category", "Community"),
+                        item.optString("description", ""), "Verified package", fileUrl, sha.lowercase(), fileName))
+                }
+            }
+        }
+    } finally { connection.disconnect() }
+}
+
+private fun startAddonDownload(context: android.content.Context, addon: AddonInfo) {
+    if (addon.fileUrl.isBlank() || addon.sha256.length != 64) {
+        android.widget.Toast.makeText(context, "Verified package not available yet.", android.widget.Toast.LENGTH_SHORT).show()
+        return
+    }
+    val prefs = context.getSharedPreferences("addon_downloads", android.content.Context.MODE_PRIVATE)
+    val request = android.app.DownloadManager.Request(android.net.Uri.parse(addon.fileUrl))
+        .setTitle(addon.name)
+        .setDescription("Downloading and checking package integrity")
+        .setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+        .setDestinationInExternalPublicDir(android.os.Environment.DIRECTORY_DOWNLOADS, "MinecraftAddons/" + addon.fileName)
+        .setAllowedOverMetered(false)
+        .setAllowedOverRoaming(false)
+    val manager = context.getSystemService(android.content.Context.DOWNLOAD_SERVICE) as android.app.DownloadManager
+    val id = manager.enqueue(request)
+    prefs.edit().putString("sha_$id", addon.sha256).putString("name_$id", addon.name).apply()
+    android.widget.Toast.makeText(context, "Download started. Wi-Fi only.", android.widget.Toast.LENGTH_SHORT).show()
 }
