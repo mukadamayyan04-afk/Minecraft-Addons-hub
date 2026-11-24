@@ -8,6 +8,7 @@ import android.content.Intent
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import java.security.MessageDigest
+import java.io.FileInputStream
 
 class AddonDownloadReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -36,12 +37,14 @@ class AddonDownloadReceiver : BroadcastReceiver() {
 
         try {
             val digest = MessageDigest.getInstance("SHA-256")
-            manager.openDownloadedFile(id).use { input ->
-                val buffer = ByteArray(16 * 1024)
-                while (true) {
-                    val count = input.read(buffer)
-                    if (count <= 0) break
-                    digest.update(buffer, 0, count)
+            manager.openDownloadedFile(id).use { descriptor ->
+                FileInputStream(descriptor.fileDescriptor).use { input ->
+                    val buffer = ByteArray(16 * 1024)
+                    while (true) {
+                        val count = input.read(buffer)
+                        if (count <= 0) break
+                        digest.update(buffer, 0, count)
+                    }
                 }
             }
             val actual = digest.digest().joinToString("") { "%02x".format(it) }
