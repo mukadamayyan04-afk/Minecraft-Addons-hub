@@ -320,6 +320,6 @@ private fun startAddonDownload(context: android.content.Context, addon: AddonInf
         .setAllowedOverRoaming(false)
     val manager = context.getSystemService(android.content.Context.DOWNLOAD_SERVICE) as android.app.DownloadManager
     val id = manager.enqueue(request)
-    prefs.edit().putString("sha_$id", addon.sha256).putString("name_$id", addon.name).apply()
+    prefs.edit().putString("sha_$id", addon.sha256).putString("name_$id", addon.name).putString("file_$id", addon.fileName).apply()
     android.widget.Toast.makeText(context, "Download started. Wi-Fi only.", android.widget.Toast.LENGTH_SHORT).show()
 }
