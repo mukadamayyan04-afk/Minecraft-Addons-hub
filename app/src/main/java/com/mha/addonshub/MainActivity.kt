@@ -76,6 +76,8 @@ private fun AddonsHubApp() {
         }
     }
 
+    LaunchedEffect(Unit) { refreshCatalog() }
+
     MaterialTheme(colorScheme = darkColorScheme(
         primary = androidx.compose.ui.graphics.Color(0xFF63D6A5),
         secondary = androidx.compose.ui.graphics.Color(0xFF8AB4F8),
@@ -124,7 +126,7 @@ private fun AddonsHubApp() {
                         Column(Modifier.padding(18.dp)) {
                             Text(if (selected == "Home") "Discover your next world" else "Explore add-ons", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                             Spacer(Modifier.height(6.dp))
-                            Text("Find community add-ons and import compatible packs into Minecraft Bedrock.")
+                            Text("Find community add-ons and download compatible packs for Minecraft Bedrock.")
                             Spacer(Modifier.height(12.dp))
                             OutlinedTextField(
                                 value = query, onValueChange = { query = it },
@@ -158,7 +160,7 @@ private fun AddonsHubApp() {
                                     TextButton(onClick = { downloadAndImport(context, addon) }) {
                                         Icon(Icons.Default.Download, null)
                                         Spacer(Modifier.width(6.dp))
-                                        Text("Download & Import")
+                                        Text("Download")
                                     }
                                 }
                             }
@@ -175,7 +177,6 @@ private fun AddonsHubApp() {
                             Text(selected, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                             Spacer(Modifier.height(8.dp))
                             Text(message)
-                            if (selected == "Home".not()) { }
                             if (selected == "Settings") {
                                 Spacer(Modifier.height(12.dp))
                                 Text("Catalog refresh is available from the refresh icon in the top bar.")
@@ -193,7 +194,7 @@ private fun AddonsHubApp() {
             title = { Text(addon.name) },
             text = { Text("${addon.description}\n\nPackage size: ${formatSize(addon.sizeBytes)}\nBedrock: ${addon.minBedrock}\nVersion: ${addon.version}") },
             confirmButton = {
-                TextButton(onClick = { downloadAndImport(context, addon); selectedAddon = null }) { Text("Download & Import") }
+                TextButton(onClick = { downloadAndImport(context, addon); selectedAddon = null }) { Text("Download") }
             },
             dismissButton = { TextButton(onClick = { selectedAddon = null }) { Text("Close") } }
         )
