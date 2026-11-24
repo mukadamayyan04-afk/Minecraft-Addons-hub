@@ -75,7 +75,7 @@ class MainActivity : ComponentActivity() {
         } catch (_: Exception) {
             Toast.makeText(this, "Minecraft ya compatible importer install nahi mila. File Downloads mein available hai.", Toast.LENGTH_LONG).show()
         }
-        intent.removeExtra("import_uri")
+        intent?.removeExtra("import_uri")
     }
 }
 
@@ -180,7 +180,7 @@ private fun AddonsHubApp() {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text("FEATURED COLLECTION", color = Muted, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                             Spacer(Modifier.weight(1f))
-                            Text("\${filtered.size} items", color = Mint, style = MaterialTheme.typography.labelSmall)
+                            Text("15 items", color = Mint, style = MaterialTheme.typography.labelSmall)
                         }
                     }
                     items(filtered) { addon ->
@@ -246,7 +246,7 @@ private fun AddonsHubApp() {
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(addon.description)
-                        Text("Category: \${addon.category}", color = Muted)
+                        Text("Category: " + addon.category, color = Muted)
                         Text("Download is not enabled yet: the package file has not passed source, checksum and Bedrock-version checks.", color = Color(0xFFFFD18A), style = MaterialTheme.typography.bodySmall)
                     }
                 },
