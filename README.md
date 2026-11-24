@@ -1,19 +1,21 @@
 # Minecraft Addons Hub
 
-A free, ad-free Android app for discovering Minecraft Bedrock community add-ons.
+A free, ad-free native Android app for Minecraft Bedrock community add-ons.
 
-## Implemented foundation
-- Native Kotlin + Jetpack Compose app module
-- Home, Explore, Downloads, Updates, and Settings navigation
-- Remote JSON catalog loading from this repository
-- Add-on search and detail dialog
-- Android Download Manager downloads, Wi-Fi-only by default
-- GitHub Actions debug APK build workflow
+## Current app work
+- Custom dark teal / mint interface and launcher icon
+- Home, Explore, Downloads and Settings navigation
+- Searchable collection of 15 planned add-on themes
+- Remote JSON catalog support for verified package entries
+- DownloadManager package downloads restricted to Wi-Fi by default
+- SHA-256 verification after download
+- Android notification handoff that opens a verified package through the system app chooser / Minecraft file handler
+- No direct access to Minecraft private folders
 
-## Catalog format
-The catalog lives at `catalog/addons.json`. Each published entry must point to a real HTTPS package and include a valid SHA-256 value, size, version, and Bedrock compatibility. The app currently validates the catalog entry format; **package checksum verification and the in-app Minecraft handoff are not implemented yet**.
+## Catalog rules
+The catalog lives at `catalog/addons.json`. An entry is downloadable only when it has a real HTTPS `.mcaddon` or `.mcpack` package URL and a valid 64-character SHA-256 digest. Package files must be genuine, tested, and original or properly licensed.
 
-Do not publish placeholder entries as downloadable add-ons. Only add original or properly licensed, real, tested package files.
+## Important current limitation
+The 15 cards currently represent the planned collection; they are not all downloadable packages yet. The remote catalog is still empty until actual package files are sourced, checked for permission to redistribute, verified, and tested for Bedrock compatibility. Do not treat a planned card as a published add-on.
 
-## Current status
-The Android foundation is committed. No APK has been verified yet, and the catalog is intentionally empty until actual add-on packages are hosted and tested on a physical device.
+The Android build can validate app code, but successful import on a physical Redmi device still requires an actual device test with Minecraft installed.
