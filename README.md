@@ -1,17 +1,19 @@
 # Minecraft Addons Hub
 
-A free, ad-free Android app for discovering and importing Minecraft Bedrock add-ons.
+A free, ad-free Android app for discovering Minecraft Bedrock community add-ons.
 
-## App structure
-- Native Kotlin + Jetpack Compose
-- Home, Explore, Downloads, Updates, and Settings
-- Remote JSON catalog, independent of APK updates
-- Download progress, retry, SHA-256 verification, and Android open/share import flow
-- No direct access to Minecraft's private app storage
-- No ads, subscriptions, or hidden paywalls
+## Implemented foundation
+- Native Kotlin + Jetpack Compose app module
+- Home, Explore, Downloads, Updates, and Settings navigation
+- Remote JSON catalog loading from this repository
+- Add-on search and detail dialog
+- Android Download Manager downloads, Wi-Fi-only by default
+- GitHub Actions debug APK build workflow
 
-## Catalog integrity
-An add-on must not be shown as downloadable until its real package files have been uploaded and verified. Each catalog entry must include package URLs, SHA-256, file size, Bedrock compatibility, screenshots, and a clear description. Use only original or properly licensed assets.
+## Catalog format
+The catalog lives at `catalog/addons.json`. Each published entry must point to a real HTTPS package and include a valid SHA-256 value, size, version, and Bedrock compatibility. The app currently validates the catalog entry format; **package checksum verification and the in-app Minecraft handoff are not implemented yet**.
 
-## Build status
-Initial repository setup. App implementation and device import testing are still in progress.
+Do not publish placeholder entries as downloadable add-ons. Only add original or properly licensed, real, tested package files.
+
+## Current status
+The Android foundation is committed. No APK has been verified yet, and the catalog is intentionally empty until actual add-on packages are hosted and tested on a physical device.
